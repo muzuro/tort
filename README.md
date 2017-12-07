@@ -1,2 +1,2 @@
 # tort
-light backend fast develepment tool using spring, hibernate and orika
+Light and fast backend develepment tool using spring, hibernate and orika
