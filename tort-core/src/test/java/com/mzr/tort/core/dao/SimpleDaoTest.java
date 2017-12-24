@@ -1,6 +1,7 @@
 package com.mzr.tort.core.dao;
 
 import com.mzr.tort.testsample.TestApplication;
+import com.mzr.tort.testsample.TransactionHelperBean;
 import com.mzr.tort.testsample.domain.Student;
 import org.hibernate.proxy.HibernateProxy;
 import org.junit.Assert;
@@ -24,6 +25,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = TestApplication.class)
@@ -37,6 +39,9 @@ public class SimpleDaoTest {
 
     @Autowired
     private SimpleDao simpleDao;
+
+    @Autowired
+    private TransactionHelperBean transactionHelperBean;
 
 //    @Before
 //    public void setUp() throws Exception {
@@ -173,15 +178,25 @@ public class SimpleDaoTest {
     }
 
     @Test
-    @Ignore
+//    @Ignore
     public void forceUpdate() throws Exception {
-        Student student = new Student("John Doe");
-        entityManager.persist(student);
+        AtomicLong id = new AtomicLong();
+        AtomicLong version = new AtomicLong();
+        transactionHelperBean.doInTransaction(() -> {
+            Student student = new Student("John Doe");
+            entityManager.persist(student);
+            id.set(student.getId());
+            version.set(student.getVersion());
+        });
 
-        Long oldVersion = student.getVersion();
-        simpleDao.forceUpdate(student);
-        Assert.assertNotEquals(oldVersion, student.getVersion());
+        transactionHelperBean.doInTransaction(() -> {
+            Student student = entityManager.find(Student.class, id.get());
+            simpleDao.forceUpdate(student);
+            Assert.assertNotEquals(new Long(version.get()), student.getVersion());
+        });
     }
+
+
 
     @Test
     public void delete() throws Exception {

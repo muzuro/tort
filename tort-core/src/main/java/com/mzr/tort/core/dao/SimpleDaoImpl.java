@@ -113,9 +113,11 @@ public class SimpleDaoImpl implements SimpleDao {
     @Override
     public <E extends IdentifiedEntity> void forceUpdate(E aEntity) {
 //        entityManager.detach(aEntity);
+        System.out.println(entityManager.getLockMode(aEntity));
         entityManager.lock(aEntity, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+        System.out.println(entityManager.getLockMode(aEntity));
         entityManager.merge(aEntity);
-        entityManager.flush();
+        System.out.println(entityManager.getLockMode(aEntity));
 //        entityManager.merge()
     }
 
