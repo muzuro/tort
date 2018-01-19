@@ -40,7 +40,7 @@ public interface SimpleDao {
 
     /**
      * force update entity version
-     * @param aEntity сущность
+     * @param aEntity
      */
     <E extends IdentifiedEntity> void forceUpdate(E aEntity);
 

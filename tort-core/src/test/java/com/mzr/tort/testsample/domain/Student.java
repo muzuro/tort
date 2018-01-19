@@ -3,6 +3,8 @@ package com.mzr.tort.testsample.domain;
 import com.mzr.tort.core.domain.FinishableLongIdEntity;
 
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.ManyToOne;
 import javax.persistence.Version;
 
 @Entity
@@ -10,10 +12,12 @@ public class Student extends FinishableLongIdEntity {
 
     private String name;
 
+    private Form form;
+
     private Long version;
 
     public Student() {
-        System.out.println("some");
+//        System.out.println("some");
     }
 
     public Student(String name) {
@@ -26,6 +30,15 @@ public class Student extends FinishableLongIdEntity {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    public Form getForm() {
+        return form;
+    }
+
+    public void setForm(Form form) {
+        this.form = form;
     }
 
     @Version

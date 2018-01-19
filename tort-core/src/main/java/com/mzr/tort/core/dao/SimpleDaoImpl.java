@@ -2,6 +2,8 @@ package com.mzr.tort.core.dao;
 
 import com.mzr.tort.core.domain.Finishable;
 import com.mzr.tort.core.domain.IdentifiedEntity;
+import org.hibernate.LockMode;
+import org.hibernate.LockOptions;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.transform.DistinctResultTransformer;
@@ -113,11 +115,15 @@ public class SimpleDaoImpl implements SimpleDao {
     @Override
     public <E extends IdentifiedEntity> void forceUpdate(E aEntity) {
 //        entityManager.detach(aEntity);
-        System.out.println(entityManager.getLockMode(aEntity));
-        entityManager.lock(aEntity, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
-        System.out.println(entityManager.getLockMode(aEntity));
-        entityManager.merge(aEntity);
-        System.out.println(entityManager.getLockMode(aEntity));
+        Session session = getSession();
+        session.buildLockRequest(new LockOptions(LockMode.OPTIMISTIC_FORCE_INCREMENT)).lock(aEntity);
+        session.saveOrUpdate(aEntity);
+        session.flush();
+//        entityManager.lock(aEntity, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+//        System.out.println(entityManager.getLockMode(aEntity));
+//        entityManager.merge(aEntity);
+//        System.out.println(entityManager.getLockMode(aEntity));
+//        entityManager.flush();
 //        entityManager.merge()
     }
 

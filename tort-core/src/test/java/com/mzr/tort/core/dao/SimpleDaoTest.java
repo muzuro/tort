@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
@@ -178,25 +179,33 @@ public class SimpleDaoTest {
     }
 
     @Test
+//    @Transactional(propagation = Propagation.NEVER)
 //    @Ignore
+
     public void forceUpdate() throws Exception {
         AtomicLong id = new AtomicLong();
-        AtomicLong version = new AtomicLong();
+        AtomicLong oldVersion = new AtomicLong();
         transactionHelperBean.doInTransaction(() -> {
             Student student = new Student("John Doe");
             entityManager.persist(student);
             id.set(student.getId());
-            version.set(student.getVersion());
+            oldVersion.set(student.getVersion());
         });
+
 
         transactionHelperBean.doInTransaction(() -> {
             Student student = entityManager.find(Student.class, id.get());
             simpleDao.forceUpdate(student);
-            Assert.assertNotEquals(new Long(version.get()), student.getVersion());
+            Assert.assertNotEquals(new Long(oldVersion.get()), student.getVersion());
         });
+
+        transactionHelperBean.doInTransaction(() -> {
+            Student student = entityManager.find(Student.class, id.get());
+            //            student.setName("Jonathan Hype");
+            Assert.assertNotEquals(new Long(oldVersion.get()), student.getVersion());
+        });
+
     }
-
-
 
     @Test
     public void delete() throws Exception {
