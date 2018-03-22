@@ -15,14 +15,4 @@ public class TestApplication {
     public static void main(String[] args) {
         SpringApplication.run(TestApplication.class, args);
     }
-    @Bean
-    public SimpleDao getSimpleDao() {
-        return new SimpleDaoImpl();
-    }
-
-    @Bean
-    public DtoExtractor getDtoExtractor() {
-        return new DtoExtractorImpl();
-    }
-
 }

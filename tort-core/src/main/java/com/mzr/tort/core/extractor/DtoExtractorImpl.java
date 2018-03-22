@@ -11,9 +11,6 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.criteria.CriteriaQuery;
 
-/**
- *
- */
 public class DtoExtractorImpl implements DtoExtractor {
 
     @PersistenceContext
