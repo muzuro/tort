@@ -1,26 +1,22 @@
-package com.mzr.tort.testsample.domain;
-
-import com.mzr.tort.core.domain.FinishableLongIdEntity;
+package com.mzr.tort.testsample.domain.dto;
 
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.ManyToOne;
 import javax.persistence.Version;
 
-@Entity
-public class Student extends FinishableLongIdEntity {
+import com.mzr.tort.core.domain.FinishableLongIdEntity;
+
+public class StudentDto extends FinishableLongIdEntity {
 
     private String name;
 
-    private Form form;
+    private FormDto form;
 
     private Long version;
 
-    public Student() {
-//        System.out.println("some");
-    }
 
-    public Student(String name) {
+    public StudentDto(String name) {
         this.name = name;
     }
 
@@ -32,16 +28,14 @@ public class Student extends FinishableLongIdEntity {
         this.name = name;
     }
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    public Form getForm() {
+    public FormDto getForm() {
         return form;
     }
 
-    public void setForm(Form form) {
+    public void setForm(FormDto form) {
         this.form = form;
     }
 
-    @Version
     public Long getVersion() {
         return version;
     }

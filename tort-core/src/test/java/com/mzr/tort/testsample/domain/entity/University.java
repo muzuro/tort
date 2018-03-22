@@ -1,4 +1,4 @@
-package com.mzr.tort.testsample.domain;
+package com.mzr.tort.testsample.domain.entity;
 
 import com.mzr.tort.core.domain.LongIdEntity;
 

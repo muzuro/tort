@@ -16,6 +16,8 @@ import java.util.function.BiConsumer;
 public interface DtoExtractor {
 
 //    <D extends IdentifiedDto, E extends IdentifiedEntity> E find(Class<D> aDtoClass, Class<E> aEntityClass, Serializable aId);
+
+//    <D extends IdentifiedDto, E extends IdentifiedEntity> E find(Class<D> aDtoClass, Class<E> aEntityClass, Serializable aId);
 //
 //    <D extends IdentifiedDto, E extends IdentifiedEntity> E find(Class<D> aDtoClass, Class<E> aEntityClass, Param... aFetchParams);
 //
@@ -49,7 +51,7 @@ public interface DtoExtractor {
 //
 //    <D extends IdentifiedDto, E extends IdentifiedEntity> List<E> fetch(Class<D> aDtoClass, Class<E> aEntityClass, Param... aParams);
 //
-//    <D extends IdentifiedDto, E extends IdentifiedEntity> List<E> fetch(Class<D> aDtoClass, Class<E> aEntityClass, List<Param> aParams);
+    <D extends IdentifiedDto, E extends IdentifiedEntity> List<E> fetch(Class<D> aDtoClass, Class<E> aEntityClass, List<Param> aParams);
 //
 //    <D extends IdentifiedDto, E extends IdentifiedEntity> List<E> fetch(Class<D> aDtoClass, Class<E> aEntityClass, CacheMode cacheMode, List<Param> aParams);
 //

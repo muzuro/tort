@@ -1,26 +1,38 @@
 package com.mzr.tort.core.extractor;
 
 import com.mzr.tort.core.extractor.param.Param;
-import org.hibernate.CacheMode;
-import org.hibernate.FlushMode;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.mzr.tort.core.domain.IdentifiedEntity;
 import com.mzr.tort.core.dto.IdentifiedDto;
-import com.mzr.tort.core.extractor.criteria.DtoDao;
+import org.hibernate.Criteria;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.function.BiConsumer;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.criteria.CriteriaQuery;
 
 /**
  *
  */
 public class DtoExtractorImpl implements DtoExtractor {
 
-//    // @Autowired
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Override
+    public <D extends IdentifiedDto, E extends IdentifiedEntity> List<E> fetch(Class<D> aDtoClass, Class<E> aEntityClass, List<Param> aParams) {
+        TortCriteriaBuilder tcb = new TortCriteriaBuilder(aEntityClass, aDtoClass, entityManager);
+        CriteriaQuery criteriaQuery = tcb.buildCriteria();
+        return entityManager.createQuery(criteriaQuery).getResultList();
+    }
+
+    //    @Override
+//    public <D extends IdentifiedDto, E extends IdentifiedEntity> E find(Class<D> aDtoClass, Class<E> aEntityClass,
+//            Serializable aId) {
+//        return null;
+//    }
+
+    //    // @Autowired
 //    private DtoDao dtoDao;
 //
 //    // @Resource(name = "tlcConfigurableMapper")

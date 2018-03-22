@@ -1,9 +1,9 @@
 package com.mzr.tort.core.dao;
 
 import com.mzr.tort.testsample.TestApplication;
-import com.mzr.tort.testsample.domain.Form;
-import com.mzr.tort.testsample.domain.Student;
-import com.mzr.tort.testsample.domain.University;
+import com.mzr.tort.testsample.domain.entity.Form;
+import com.mzr.tort.testsample.domain.entity.Student;
+import com.mzr.tort.testsample.domain.entity.University;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
