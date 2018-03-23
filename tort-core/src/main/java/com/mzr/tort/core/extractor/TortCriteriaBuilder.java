@@ -1,23 +1,5 @@
 package com.mzr.tort.core.extractor;
 
-import com.google.common.base.Joiner;
-import com.mzr.tort.core.domain.IdentifiedEntity;
-import com.mzr.tort.core.dto.IdentifiedDto;
-import com.mzr.tort.core.dto.utils.DtoUtils;
-import com.mzr.tort.core.dto.utils.Prop;
-import com.mzr.tort.core.dto.utils.TypeUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.persistence.*;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Fetch;
-import javax.persistence.criteria.FetchParent;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.Root;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,18 +7,41 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.FetchParent;
+import javax.persistence.criteria.From;
+import javax.persistence.criteria.Order;
+import javax.persistence.criteria.Path;
+import javax.persistence.criteria.Root;
+
+import com.google.common.base.Joiner;
+import com.mzr.tort.core.domain.IdentifiedEntity;
+import com.mzr.tort.core.dto.IdentifiedDto;
+import com.mzr.tort.core.dto.utils.DtoUtils;
+import com.mzr.tort.core.dto.utils.Prop;
+import com.mzr.tort.core.dto.utils.TypeUtils;
+import org.apache.commons.lang3.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends IdentifiedDto> {
 
     private final Logger logger = LoggerFactory.getLogger(TortCriteriaBuilder.class);
-    private final Map<String, PropertyCriteria> criterias = new HashMap<>();
+    private final Map<String, PropertyMeta> criterias = new HashMap<>();
     private final Class<E> rootEntity;
 
 
     private final Class<D> dtoClass;
     private EntityManager entityManager;
     private CriteriaBuilder cb;
+    private Root<E> root;
+    private CriteriaQuery<E> criteriaQuery;
 
     TortCriteriaBuilder(Class<E> aEntityClass, Class<D> aDtoClass, EntityManager entityManager) {
         rootEntity = aEntityClass;
@@ -44,28 +49,46 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
         this.entityManager = entityManager;
     }
 
-    CriteriaQuery<E> buildCriteria() {
+    TortCriteriaBuilder buildCriteria() {
         cb = entityManager.getCriteriaBuilder();
-        CriteriaQuery<E> criteria = cb.createQuery(rootEntity);
-        Root<E> root = criteria.from(rootEntity);
-        PropertyCriteria rootPropertyCriteria = new PropertyCriteria(root, "", rootEntity);
+        criteriaQuery = cb.createQuery(rootEntity);
+        root = criteriaQuery.from(rootEntity);
+        PropertyMeta rootPropertyCriteria = new PropertyMeta(root, "", rootEntity);
         criterias.put("", rootPropertyCriteria);
         addJoins(dtoClass, rootEntity, rootPropertyCriteria);
-        return criteria;
+        return this;
     }
 
-    //
-//    /**
-//     * @return all current joins in alphabetical order, useful for debug
-//     */
-//    public String getCriteriasHierarchy() {
-//        List<String> toSort = new ArrayList<>(criterias.keySet());
-//        java.util.Collections.sort(toSort);
-//        return Joiner.on("\n").join(toSort);
-//    }
-//
+    public TortCriteriaBuilder order(String aPath, String aFieldName, OrderType aOrderType) {
+        List<Order> orders = new ArrayList<>();
+        orders.addAll(criteriaQuery.getOrderList());
+
+        PropertyMeta propertyMeta = criterias.get(aPath);
+        Path path = propertyMeta.from.get(aFieldName);
+
+        Order order;
+        if (aOrderType == OrderType.ASC) {
+            order = cb.asc(path);
+        } else {
+            order = cb.desc(path);
+        }
+
+        orders.add(order);
+        criteriaQuery.orderBy(orders);
+        return this;
+    }
+
+    /**
+     * @return all current joins in alphabetical order, useful for debug
+     */
+    protected String getCriteriasHierarchy() {
+        List<String> toSort = new ArrayList<>(criterias.keySet());
+        java.util.Collections.sort(toSort);
+        return Joiner.on("\n").join(toSort);
+    }
+
     private void addJoins(Class<D> aDtoClass,
-            Class<E> aEntityClass, PropertyCriteria parentPropertyCriteria) {
+            Class<E> aEntityClass, PropertyMeta parentPropertyCriteria) {
         for (Prop dtoProp : DtoUtils.getMappedProps(aDtoClass)) {
             Prop entityProp = DtoUtils.findProp(aEntityClass, dtoProp.getMappedName());
             if (entityProp == null) {
@@ -83,19 +106,17 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
             }
 
             if (IdentifiedDto.class.isAssignableFrom(dtoProp.getPropertyType())) {
-
                 Class<D> childDtoClass = (Class<D>) dtoProp.getPropertyType();
                 Class<E> childEntityClass = (Class<E>) entityProp.getPropertyType();
                 if (detectCycle(childEntityClass, childPath)) {
                     continue;
                 }
-                Fetch fetch = parentPropertyCriteria.from.fetch(dtoProp.getMappedName());
-                PropertyCriteria childPropertyCriteria = new PropertyCriteria(fetch, childPath,
+                From fetch = (From) parentPropertyCriteria.from.fetch(dtoProp.getMappedName());
+                PropertyMeta childPropertyCriteria = new PropertyMeta(fetch, childPath,
                         childEntityClass);
                 criterias.put(childPath, childPropertyCriteria);
                 addJoins(childDtoClass, childEntityClass, childPropertyCriteria);
             } else if (Collection.class.isAssignableFrom(dtoProp.getPropertyType())) {
-
                 Class<D> childDtoClass = TypeUtils.getTypeArgument(dtoProp.getReadMethod().getGenericReturnType(),
                         Collection.class);
                 Class<E> childEntityClass = TypeUtils.getTypeArgument(entityProp.getReadMethod()
@@ -103,42 +124,33 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
                 if (detectCycle(childEntityClass, childPath)) {
                     continue;
                 }
-                Fetch fetch = parentPropertyCriteria.from.fetch(dtoProp.getMappedName());
-                PropertyCriteria childPropertyCriteria = new PropertyCriteria(fetch, childPath,
+                From fetch = (From) parentPropertyCriteria.from.fetch(dtoProp.getMappedName());
+                PropertyMeta childPropertyCriteria = new PropertyMeta(fetch, childPath,
                         childEntityClass);
                 criterias.put(childPath, childPropertyCriteria);
                 addJoins(childDtoClass, childEntityClass, childPropertyCriteria);
             } /*else {
                 // verify simple field owners are joined
-                addParamJoins(childPath);
+                addFilterJoins(childPath);
             }*/
-
-//            String childPath = Joiner.on(".").join(parentPropertyCriteria.getPath(), dtoProp.getMappedName());
-//            if (childPath.startsWith(".")) {
-//                //parent is root entityClass, path should be - child name
-//                childPath = dtoProp.getMappedName();
-//            }
-
-
         }
     }
 
     /**
-     * Если
-     * 1. уже есть критерия для поля с этим классом и у этой критерии есть подкритерии.
-     * 2. в пути образуется цикл из классов. Например у Customer есть коллекция stands,
-     *   у Stand в свою очередь есть поле Customer.
-     * При совпадении обоих условий - для этого поля исключается джоин.
-     * @param aEntityClass класс сущности поля подкритерии
-     * @param childPath путь к подкритерии
+     * If
+     * 1. There is fetch for this field and this fetch has subfetch.
+     * 2. There is cycle in class path
+     * If both is true - we exclude fetch join
+     * @param aEntityClass join entity class
+     * @param childPath join path
      * @return
      */
     private boolean detectCycle(Class<?> aEntityClass, String childPath) {
-        PropertyCriteria selected = findPropertyCriteria(aEntityClass);
+        PropertyMeta selected = findPropertyCriteria(aEntityClass);
         if (selected == null) {
             return false;
         } else {
-            Collection<PropertyCriteria> subCriterias = findSubCriterias(selected);
+            Collection<PropertyMeta> subCriterias = findSubCriterias(selected);
             return !subCriterias.isEmpty() && isClassCycle(aEntityClass, childPath);
         }
     }
@@ -162,8 +174,8 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
         return classCycle;
     }
 
-    private Collection<PropertyCriteria> findSubCriterias(PropertyCriteria selected) {
-        List<PropertyCriteria> result = new ArrayList<>();
+    private Collection<PropertyMeta> findSubCriterias(PropertyMeta selected) {
+        List<PropertyMeta> result = new ArrayList<>();
         criterias.values().forEach((pc) -> {
             String currentPath = pc.path;
             if (currentPath.startsWith(selected.path) && currentPath.length() > selected.path.length()) {
@@ -173,159 +185,140 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
         return result;
     }
 
-    private PropertyCriteria findPropertyCriteria(Class<?> aEntityClass) {
-        for (PropertyCriteria pc : criterias.values()) {
+    private PropertyMeta findPropertyCriteria(Class<?> aEntityClass) {
+        for (PropertyMeta pc : criterias.values()) {
             if (Objects.equals(pc.entityClass, aEntityClass)) {
                 return pc;
             }
         }
         return null;
     }
-//
-//    private Criteria addCollectionJoin(String aChildPath, Prop dtoProp, Prop entityProp) {
-//        OneToMany oneToMany = entityProp.findAnnotation(OneToMany.class);
-//        if (oneToMany != null && FetchType.LAZY.equals(oneToMany.fetch())) {
-//            return getRootCriteria().getCriteria().createCriteria(aChildPath, CriteriaSpecification.LEFT_JOIN);
-//        }
-//        ManyToMany manyToMany = entityProp.findAnnotation(ManyToMany.class);
-//        if (manyToMany != null && FetchType.LAZY.equals(manyToMany.fetch())) {
-//            return getRootCriteria().getCriteria().createCriteria(aChildPath, CriteriaSpecification.LEFT_JOIN);
-//        }
-//        return null;
-//    }
-//
-//    private Join addSingleJoin(String aChildPath, Prop dtoProp, Prop entityProp) {
-//        Validate.isTrue(IdentifiedEntity.class.isAssignableFrom(entityProp.getPropertyType()));
-//        OneToOne oneToOne = entityProp.findAnnotation(OneToOne.class);
-//        if (oneToOne != null /* && FetchType.LAZY.equals(oneToOne.fetch()) */) {
-//            return getRootCriteria().getFrom().join(aChildPath);
-//        }
-//        ManyToOne manyToOne = entityProp.findAnnotation(ManyToOne.class);
-//        if (manyToOne != null /* && FetchType.LAZY.equals(manyToOne.fetch()) */) {
-//            return getRootCriteria().getFrom().join(aChildPath);
-//        }
-//        return null;
-//    }
-//
-    public static class PropertyCriteria<E extends IdentifiedEntity> {
 
-        private final FetchParent from;
+    public static class PropertyMeta<E extends IdentifiedEntity> {
+
+        private final From from;
         private final String path;
         private final Class<E> entityClass;
 
-        public PropertyCriteria(FetchParent from, String path, Class<E> entityClass) {
+        public PropertyMeta(From from, String path, Class<E> entityClass) {
             this.from = from;
             this.path = path;
             this.entityClass = entityClass;
         }
-
-
     }
-//
-//    void addParam(Param param) {
-//        Criteria criteria = findCriteria(param.getPath());
-//        String path = param.getPath();
-//        if (criteria == null) {
-//            addParamJoins(path);
-//        }
-//        criteria = criterias.get(param.getPath()).getCriteria();
-//        Validate.notNull(criteria, "Invalid path '%s' in fetch param", path);
-//        if (param instanceof FetchParam) {
-//            criteria.add(((FetchParam) param).getCriterion());
-//        } else if (param instanceof InRefsFetchParam) {
-//            InRefsFetchParam irfp = (InRefsFetchParam) param;
-//            List<Object> collect = irfp.getIds().stream().map(id->session.load(irfp.getEntityClass(), id))
-//                    .collect(Collectors.toList());
-//            criteria.add(Restrictions.in(irfp.getPropertyName(), collect));
-//        } else if (param instanceof OrderParam) {
-//            criteria.addOrder(((OrderParam) param).getOrder());
-//        } else if (param instanceof PageParam) {
-//            criteria.setFirstResult(((PageParam) param).getFrom());
-//            criteria.setMaxResults(((PageParam) param).getCount());
-//        } else if (param instanceof SubqueryExistParam) {
-//            SubqueryExistParam subPar = (SubqueryExistParam) param;
-//            DetachedCriteria rootSubquery = DetachedCriteria.forClass(subPar.getSubqueryClass(), subPar.getAlias());
-//            for (FetchParam subParam : subPar.getSubqueryParams()) {
-//                createSubcriteriaJoin(subParam.getPath(), rootSubquery).add(subParam.getCriterion());
-//            }
-//            rootSubquery.add(Restrictions.eqProperty(subPar.getRootReference(), "root.id"));
-//            rootSubquery.setProjection(Projections.id());
-//            getRootCriteria().getCriteria().add(Subqueries.exists(rootSubquery));
-//        } else if (param instanceof AliasParam) {
-//            Validate.isInstanceOf(Subcriteria.class, criteria, "AliasParam path should be subcriteria");
-//            ((Subcriteria)criteria).setAlias(((AliasParam) param).getAlias());
-//
-//        } else if (param instanceof CacheModeParam) {
-//            CacheModeParam cacheModeParam = CacheModeParam.class.cast(param);
-//            criteria.setCacheMode(cacheModeParam.getCacheMode());
-//        }
-//    }
-//
-//    private DetachedCriteria createSubcriteriaJoin(String aPath, DetachedCriteria aDc) {
-//        String[] split = aPath.split("\\.");
-//        DetachedCriteria currentCriteria = aDc;
-//        for (String associationPath : split) {
-//            currentCriteria = currentCriteria.createCriteria(associationPath);
-//        }
-//        return currentCriteria;
-//    }
-//
-//    private void addParamJoins(String path) {
-//        List<String> addJoinsPath = new ArrayList<>();
-//        String[] split = path.split("\\.");
-//        String parentPath = null;
-//        for (String part : split) {
-//            parentPath = Joiner.on(".").skipNulls().join(parentPath, part);
-//            if (!criterias.containsKey(parentPath)) {
-//                addJoinsPath.add(parentPath);
-//            }
-//        }
-//        for (String fieldPath : addJoinsPath) {
-//            Class<?> entityClass = getRootCriteria().getEntityClass();
-//            Prop prop = DtoUtils.findProp(entityClass, fieldPath);
-//            Validate.notNull(prop, "not found property %s in %s", fieldPath, entityClass);
-//            if (IdentifiedEntity.class.isAssignableFrom(prop.getPropertyType())
-//                    || Collection.class.isAssignableFrom(prop.getPropertyType())) {
-//                Criteria createCriteria = getRootCriteria().getCriteria().createCriteria(fieldPath, CriteriaSpecification.LEFT_JOIN);
-//                PropertyCriteria pc = new PropertyCriteria(createCriteria, fieldPath, null);
-//                criterias.put(fieldPath, pc);
-//            }
-//        }
-//    }
-//
-//    private PropertyCriteria getRootCriteria() {
-//        return criterias.get("");
-//    }
-//
-//    private String getParentPath(String aFieldName) {
-//        int lastIndexOf = aFieldName.lastIndexOf('.');
-//        return lastIndexOf != -1 ? aFieldName.substring(0, lastIndexOf) : "";
-//    }
-//
-//    private Criteria findCriteria(String aPath) {
-//        Criteria criteria = null;
-//        for (PropertyCriteria pc : criterias.values()) {
-//            if (Objects.equals(aPath, pc.getPath())) {
-//                criteria = pc.getCriteria();
-//            }
-//        }
-//        return criteria;
-//    }
-//
-//    private Map<String, PropertyCriteria> getCriterias() {
-//        return criterias;
-//    }
-//
-//    protected Class<E> getRootEntity() {
-//        return rootEntity;
-//    }
-//
-//    protected Session getSession() {
-//        return session;
-//    }
-//
-//    protected Class<D> getDtoClass() {
-//        return dtoClass;
-//    }
+
+    public TortCriteriaBuilder filter(String path, BiConsumer<CriteriaBuilder, FetchParent> criterion) {
+        From join = findOrCreateJoin(path);
+        criterion.accept(cb, join);
+        return this;
+    }
+
+    public List<E> list() {
+        TypedQuery<E> query = entityManager.createQuery(criteriaQuery);
+        return query.getResultList();
+    }
+
+    public List<E> list(int aStartFrom, int aCount) {
+        TypedQuery<E> query = entityManager.createQuery(criteriaQuery);
+        query.setFirstResult(aStartFrom);
+        query.setMaxResults(aCount);
+        return query.getResultList();
+    }
+
+    public E unique() {
+        TypedQuery<E> query = entityManager.createQuery(criteriaQuery);
+        return query.getSingleResult();
+    }
+
+    private From findOrCreateJoin(String path) {
+        From join = findJoin(path);
+        if (join == null) {
+            join = addFilterJoins(path).from;
+        }
+        return join;
+    }
+
+    /*void addParam(Param param) {
+        String path = param.getPath();
+        From join = findOrCreateJoin(path);
+        if (param instanceof FetchParam) {
+            BiConsumer<CriteriaBuilder, FetchParent> criterion = ((FetchParam) param).getCriterion();
+            criterion.accept(cb, join);
+        } else if (param instanceof InRefsFetchParam) {
+            InRefsFetchParam irfp = (InRefsFetchParam) param;
+            List<Object> collect = irfp.getIds().stream().map(id->session.load(irfp.getEntityClass(), id))
+                    .collect(Collectors.toList());
+            criteria.add(Restrictions.in(irfp.getPropertyName(), collect));
+        }else if (param instanceof OrderParam) {
+
+
+            join.addOrder(((OrderParam) param).getOrder());
+        } else if (param instanceof PageParam) {
+            criteria.setFirstResult(((PageParam) param).getFrom());
+            criteria.setMaxResults(((PageParam) param).getCount());
+        } else if (param instanceof SubqueryExistParam) {
+            SubqueryExistParam subPar = (SubqueryExistParam) param;
+            DetachedCriteria rootSubquery = DetachedCriteria.forClass(subPar.getSubqueryClass(), subPar.getAlias());
+            for (FetchParam subParam : subPar.getSubqueryParams()) {
+                createSubcriteriaJoin(subParam.getPath(), rootSubquery).add(subParam.getCriterion());
+            }
+            rootSubquery.add(Restrictions.eqProperty(subPar.getRootReference(), "root.id"));
+            rootSubquery.setProjection(Projections.id());
+            getRootCriteria().getCriteria().add(Subqueries.exists(rootSubquery));
+        } else if (param instanceof AliasParam) {
+            Validate.isInstanceOf(Subcriteria.class, criteria, "AliasParam path should be subcriteria");
+            ((Subcriteria)criteria).setAlias(((AliasParam) param).getAlias());
+
+        } else if (param instanceof CacheModeParam) {
+            CacheModeParam cacheModeParam = CacheModeParam.class.cast(param);
+            criteria.setCacheMode(cacheModeParam.getCacheMode());
+        }
+    }
+
+    private DetachedCriteria createSubcriteriaJoin(String aPath, DetachedCriteria aDc) {
+        String[] split = aPath.split("\\.");
+        DetachedCriteria currentCriteria = aDc;
+        for (String associationPath : split) {
+            currentCriteria = currentCriteria.createCriteria(associationPath);
+        }
+        return currentCriteria;
+    }*/
+
+    private PropertyMeta addFilterJoins(String path) {
+        List<String> addJoinsPath = new ArrayList<>();
+        String[] split = path.split("\\.");
+        String parentPath = null;
+        for (String part : split) {
+            parentPath = Joiner.on(".").skipNulls().join(parentPath, part);
+            if (!criterias.containsKey(parentPath)) {
+                addJoinsPath.add(parentPath);
+            }
+        }
+        PropertyMeta lastAdded = null;
+        for (String fieldPath : addJoinsPath) {
+            Prop prop = DtoUtils.findProp(rootEntity, fieldPath);
+            Validate.notNull(prop, "not found property %s in %s", fieldPath, rootEntity);
+            if (IdentifiedEntity.class.isAssignableFrom(prop.getPropertyType())
+                    || Collection.class.isAssignableFrom(prop.getPropertyType())) {
+                From fetch = (From) root.fetch("fieldPath");
+                PropertyMeta pc = new PropertyMeta(fetch, fieldPath, null);
+                criterias.put(fieldPath, pc);
+                lastAdded = pc;
+            }
+        }
+        if (lastAdded != null) {
+            return lastAdded;
+        }
+        throw new IllegalStateException("Not added any join");
+    }
+
+    private From findJoin(String aPath) {
+        PropertyMeta propertyMeta = criterias.getOrDefault(aPath, null);
+        return Optional.ofNullable(propertyMeta).map(p->p.from).orElseGet(null);
+    }
+
+    public static enum OrderType {
+        ASC, DESC
+    }
 
 }

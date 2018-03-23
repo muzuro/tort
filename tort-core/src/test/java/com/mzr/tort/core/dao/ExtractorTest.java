@@ -63,8 +63,7 @@ public class ExtractorTest {
 
         List<University> holderList = new ArrayList<>();
         transactionHelperBean.doInTransaction(()-> {
-            List<University> universities = dtoExtractor.fetch(UniversityDto.class, University.class,
-                    Collections.emptyList());
+            List<University> universities = dtoExtractor.extract(UniversityDto.class, University.class).list();
             Assert.assertEquals(1, universities.size());
             holderList.add(universities.iterator().next());
             Set<Form> forms = holderList.iterator().next().getForms();

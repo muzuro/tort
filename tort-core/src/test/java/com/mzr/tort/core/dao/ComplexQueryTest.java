@@ -15,6 +15,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
 import javax.persistence.criteria.*;
 import java.util.List;
 
@@ -54,7 +55,8 @@ public class ComplexQueryTest {
             Join<Object, Object> formJoin = fromUniversity.join("forms");
             Join<Object, Object> studentJoin = formJoin.join("students");
             criteria.where(cb.equal(studentJoin.get("name"), "Yosef"));
-            List<University> resultList = entityManager.createQuery(criteria).getResultList();
+            TypedQuery<University> query = entityManager.createQuery(criteria);
+            List<University> resultList = query.getResultList();
             Assert.assertTrue(resultList.isEmpty());
         }
         {
@@ -63,8 +65,9 @@ public class ComplexQueryTest {
             Root<University> fromUniversity = criteria.from(University.class);
             Join<Object, Object> formJoin = fromUniversity.join("forms");
             Join<Object, Object> studentJoin = formJoin.join("students");
+            TypedQuery<University> query = entityManager.createQuery(criteria);
             criteria.where(cb.equal(studentJoin.get("name"), "Anna"));
-            List<University> resultList = entityManager.createQuery(criteria).getResultList();
+            List<University> resultList = query.getResultList();
             System.out.println(resultList);
             Assert.assertFalse(resultList.isEmpty());
         }
