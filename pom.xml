@@ -8,9 +8,12 @@
     <groupId>com.mzr.tort</groupId>
     <artifactId>tort</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+    <modules>
+        <module>sample-tort-app</module>
+    </modules>
     <packaging>pom</packaging>
 
-    <name>Tort</name>
+    <name>tort</name>
 
     <build>
         <pluginManagement>
