@@ -9,15 +9,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.FetchParent;
 import javax.persistence.criteria.From;
+import javax.persistence.criteria.JoinType;
 import javax.persistence.criteria.Order;
 import javax.persistence.criteria.Path;
+import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 
 import com.google.common.base.Joiner;
@@ -42,6 +43,7 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
     private CriteriaBuilder cb;
     private Root<E> root;
     private CriteriaQuery<E> criteriaQuery;
+    private List<Predicate> predicates = new ArrayList<>();
 
     TortCriteriaBuilder(Class<E> aEntityClass, Class<D> aDtoClass, EntityManager entityManager) {
         rootEntity = aEntityClass;
@@ -49,7 +51,7 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
         this.entityManager = entityManager;
     }
 
-    TortCriteriaBuilder buildCriteria() {
+    TortCriteriaBuilder<E, D> buildCriteria() {
         cb = entityManager.getCriteriaBuilder();
         criteriaQuery = cb.createQuery(rootEntity);
         root = criteriaQuery.from(rootEntity);
@@ -59,7 +61,25 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
         return this;
     }
 
-    public TortCriteriaBuilder order(String aPath, String aFieldName, OrderType aOrderType) {
+    public TortCriteriaBuilder<E, D> order(String aFieldName, OrderType aOrderType) {
+        List<Order> orders = new ArrayList<>();
+        orders.addAll(criteriaQuery.getOrderList());
+
+        Path path = root.get(aFieldName);
+
+        Order order;
+        if (aOrderType == OrderType.ASC) {
+            order = cb.asc(path);
+        } else {
+            order = cb.desc(path);
+        }
+
+        orders.add(order);
+        criteriaQuery.orderBy(orders);
+        return this;
+    }
+
+    public TortCriteriaBuilder<E, D> order(String aPath, String aFieldName, OrderType aOrderType) {
         List<Order> orders = new ArrayList<>();
         orders.addAll(criteriaQuery.getOrderList());
 
@@ -111,7 +131,7 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
                 if (detectCycle(childEntityClass, childPath)) {
                     continue;
                 }
-                From fetch = (From) parentPropertyCriteria.from.fetch(dtoProp.getMappedName());
+                From fetch = (From) parentPropertyCriteria.from.fetch(dtoProp.getMappedName(), JoinType.LEFT);
                 PropertyMeta childPropertyCriteria = new PropertyMeta(fetch, childPath,
                         childEntityClass);
                 criterias.put(childPath, childPropertyCriteria);
@@ -124,7 +144,7 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
                 if (detectCycle(childEntityClass, childPath)) {
                     continue;
                 }
-                From fetch = (From) parentPropertyCriteria.from.fetch(dtoProp.getMappedName());
+                From fetch = (From) parentPropertyCriteria.from.fetch(dtoProp.getMappedName(), JoinType.LEFT);
                 PropertyMeta childPropertyCriteria = new PropertyMeta(fetch, childPath,
                         childEntityClass);
                 criterias.put(childPath, childPropertyCriteria);
@@ -207,27 +227,39 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
         }
     }
 
-    public TortCriteriaBuilder filter(String path, BiConsumer<CriteriaBuilder, FetchParent> criterion) {
+    public TortCriteriaBuilder<E, D> filter(BiFunction<CriteriaBuilder, From, Predicate> criterion) {
+        predicates.add(criterion.apply(cb, root));
+        return this;
+    }
+
+    public TortCriteriaBuilder<E, D> filter(String path, BiFunction<CriteriaBuilder, From, Predicate> criterion) {
         From join = findOrCreateJoin(path);
-        criterion.accept(cb, join);
+        predicates.add(criterion.apply(cb, join));
         return this;
     }
 
     public List<E> list() {
-        TypedQuery<E> query = entityManager.createQuery(criteriaQuery);
+        TypedQuery<E> query = prepareQuery();
         return query.getResultList();
     }
 
     public List<E> list(int aStartFrom, int aCount) {
-        TypedQuery<E> query = entityManager.createQuery(criteriaQuery);
+        TypedQuery<E> query = prepareQuery();
         query.setFirstResult(aStartFrom);
         query.setMaxResults(aCount);
         return query.getResultList();
     }
 
     public E unique() {
-        TypedQuery<E> query = entityManager.createQuery(criteriaQuery);
+        TypedQuery<E> query = prepareQuery();
         return query.getSingleResult();
+    }
+
+    private TypedQuery<E> prepareQuery() {
+        if (!predicates.isEmpty()) {
+            criteriaQuery.where(predicates.toArray(new Predicate[predicates.size()]));
+        }
+        return entityManager.createQuery(criteriaQuery);
     }
 
     private From findOrCreateJoin(String path) {
@@ -300,7 +332,7 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
             Validate.notNull(prop, "not found property %s in %s", fieldPath, rootEntity);
             if (IdentifiedEntity.class.isAssignableFrom(prop.getPropertyType())
                     || Collection.class.isAssignableFrom(prop.getPropertyType())) {
-                From fetch = (From) root.fetch("fieldPath");
+                From fetch = (From) root.fetch("fieldPath", JoinType.LEFT);
                 PropertyMeta pc = new PropertyMeta(fetch, fieldPath, null);
                 criterias.put(fieldPath, pc);
                 lastAdded = pc;
