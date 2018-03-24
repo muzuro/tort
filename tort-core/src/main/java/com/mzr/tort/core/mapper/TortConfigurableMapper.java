@@ -1,15 +1,34 @@
-package com.mzr.tort.core.extractor;
+package com.mzr.tort.core.mapper;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+import javax.annotation.PostConstruct;
 
 import com.mzr.tort.core.ColorSchemeResolver;
 import com.mzr.tort.core.domain.DetailedEnumedDictionary;
 import com.mzr.tort.core.domain.EnumedDictionary;
 import com.mzr.tort.core.domain.IdentifiedEntity;
-import com.mzr.tort.core.dto.*;
+import com.mzr.tort.core.dto.DetailedEnumedDictionaryDto;
+import com.mzr.tort.core.dto.EnumedDictionaryDto;
+import com.mzr.tort.core.dto.ExtendedEnumedDictionaryDto;
+import com.mzr.tort.core.dto.IdentifiedDto;
+import com.mzr.tort.core.dto.MappedDto;
+import com.mzr.tort.core.dto.StyledEnumDictionaryDto;
 import com.mzr.tort.core.dto.utils.DtoUtils;
 import com.mzr.tort.core.dto.utils.Prop;
 import com.mzr.tort.core.extractor.annotations.Mapped;
 import com.mzr.tort.core.extractor.annotations.NotMapped;
-import ma.glasnost.orika.*;
+import ma.glasnost.orika.CustomConverter;
+import ma.glasnost.orika.DefaultFieldMapper;
+import ma.glasnost.orika.MapperFacade;
+import ma.glasnost.orika.MapperFactory;
+import ma.glasnost.orika.MappingContext;
 import ma.glasnost.orika.converter.BidirectionalConverter;
 import ma.glasnost.orika.converter.builtin.PassThroughConverter;
 import ma.glasnost.orika.impl.ConfigurableMapper;
@@ -21,21 +40,11 @@ import ma.glasnost.orika.property.PropertyResolverStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.i18n.LocaleContextHolder;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.util.*;
-
-/**
- *
- */
-public class TortConfigurableMapper extends ConfigurableMapper implements InitializingBean {
+public class TortConfigurableMapper extends ConfigurableMapper {
 
     private static final LocalDate START_OF_UNIX_TIME_LOCAL_DATE = LocalDate.parse("1970-01-01");
 
@@ -46,27 +55,12 @@ public class TortConfigurableMapper extends ConfigurableMapper implements Initia
 
     private ColorSchemeResolver colorSchemeResolver;
 
-    /**
-     * Для spring. Инициализация запустится после того, как будут найдены все требуемые зависимости.
-     */
-    protected TortConfigurableMapper() {
+    public TortConfigurableMapper() {
         super(false);
     }
 
-    /**
-     * ctor для использования в коде
-     *
-     * @param applicationContext
-     */
-    public TortConfigurableMapper(ApplicationContext applicationContext) {
-        super(false);
-        this.applicationContext = applicationContext;
-        internalInit();
-        super.init();
-    }
-
-    @Override
-    public void afterPropertiesSet() throws Exception {
+    @PostConstruct
+    public void init() {
         internalInit();
         super.init();
     }
@@ -100,7 +94,17 @@ public class TortConfigurableMapper extends ConfigurableMapper implements Initia
         mapperFactory.getConverterFactory().registerConverter(
                 new BidirectionalConverter<EnumedDictionary, EnumedDictionaryDto>() {
                     @Override
-                    public EnumedDictionaryDto convertTo(EnumedDictionary aSource, Type<EnumedDictionaryDto> aDestinationType, MappingContext mappingContext) {
+                    public boolean canConvert(Type<?> aSourceType, Type<?> aDestinationType) {
+                        Class<?> srcClass = aSourceType.getRawType();
+                        Class<?> dstClass = aDestinationType.getRawType();
+                        boolean aToB = EnumedDictionary.class.isAssignableFrom(srcClass) && EnumedDictionaryDto.class.isAssignableFrom(dstClass);
+                        boolean bToA = EnumedDictionaryDto.class.isAssignableFrom(srcClass) && EnumedDictionary.class.isAssignableFrom(dstClass);
+                        return aToB || bToA;
+                    }
+
+                    @Override
+                    public EnumedDictionaryDto convertTo(EnumedDictionary aSource,
+                            Type<EnumedDictionaryDto> aDestinationType, MappingContext mappingContext) {
                         EnumedDictionaryDto enumedDictionaryDto;
                         Class<EnumedDictionaryDto> destinationType = aDestinationType.getRawType();
                         if (aSource instanceof DetailedEnumedDictionary && DetailedEnumedDictionaryDto.class.equals(destinationType)) {
@@ -120,8 +124,8 @@ public class TortConfigurableMapper extends ConfigurableMapper implements Initia
                             }
                         }
                         enumedDictionaryDto.setName(aSource.getName());
-
-
+                        
+                        
                         enumedDictionaryDto.setCaption(
                                 getEnumCaption(aSource)
                         );
@@ -152,25 +156,9 @@ public class TortConfigurableMapper extends ConfigurableMapper implements Initia
                         return enumedDictionaryDto;
                     }
 
-                    @Override
-                    public EnumedDictionary convertFrom(EnumedDictionaryDto source, Type<EnumedDictionary> aDestinationType,
-                            MappingContext mappingContext) {
-                        Class rawType = aDestinationType.getRawType();
-                        return (EnumedDictionary) Enum.valueOf(rawType, source.getName());
-                    }
-
-                    @Override
-                    public boolean canConvert(Type<?> aSourceType, Type<?> aDestinationType) {
-                        Class<?> srcClass = aSourceType.getRawType();
-                        Class<?> dstClass = aDestinationType.getRawType();
-                        boolean aToB = EnumedDictionary.class.isAssignableFrom(srcClass) && EnumedDictionaryDto.class.isAssignableFrom(dstClass);
-                        boolean bToA = EnumedDictionaryDto.class.isAssignableFrom(srcClass) && EnumedDictionary.class.isAssignableFrom(dstClass);
-                        return aToB || bToA;
-                    }
-
                     /**
                      * @param aSource
-                     * @return месседж по каноникал нейм, если нет по симпл класс нейм
+                     * @return message from spring context, from class name or simple name
                      */
                     private String getEnumCaption(EnumedDictionary aSource) {
                         String simpleMessage = applicationContext.getMessage(String.format("%s.%s", aSource.getClass().getSimpleName(), aSource.getName()), null, LocaleContextHolder.getLocale());
@@ -178,26 +166,31 @@ public class TortConfigurableMapper extends ConfigurableMapper implements Initia
                         return applicationContext.getMessage(canonicalCode, null, simpleMessage, LocaleContextHolder.getLocale());
                     }
 
+                    @Override
+                    public EnumedDictionary convertFrom(EnumedDictionaryDto aSource, Type<EnumedDictionary> aDestinationType,
+                            MappingContext mappingContext) {
+                        Class rawType = aDestinationType.getRawType();
+                        return (EnumedDictionary) Enum.valueOf(rawType, aSource.getName());
+                    }
                 });
         mapperFactory.getConverterFactory().registerConverter(new CustomConverter<LocalDate, Date>() {
             @Override
             public Date convert(LocalDate source, Type<? extends Date> destinationType, MappingContext mappingContext) {
                 return Date.from(source.atStartOfDay(ZoneId.systemDefault()).toInstant());
             }
-
         });
         mapperFactory.getConverterFactory().registerConverter(new CustomConverter<LocalTime, Date>() {
             @Override
             public Date convert(LocalTime aSource, Type<? extends Date> aDestinationType, MappingContext mappingContext) {
-                Instant instant = START_OF_UNIX_TIME_LOCAL_DATE.atTime(aSource).atZone(ZoneId.systemDefault()).toInstant();
-                return Date.from(instant);
+                LocalDateTime localDateTime = LocalDateTime.of(START_OF_UNIX_TIME_LOCAL_DATE, aSource);
+                return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
             }
         });
         mapperFactory.getConverterFactory().registerConverter(new PassThroughConverter(LocalDate.class));
         mapperFactory.getConverterFactory().registerConverter(new PassThroughConverter(LocalTime.class));
 //        mapperFactory.getConverterFactory().registerConverter(new CustomConverter<Duration, Duration>() {
 //            @Override
-//            public Duration convert(Duration aSource, Type<? extends Duration> aDestinationType, MappingContext mappingContext) {
+//            public Duration convert(Duration aSource, Type<? extends Duration> aDestinationType) {
 //                return new Duration(aSource.getMillis());
 //            }
 //        });
@@ -216,12 +209,19 @@ public class TortConfigurableMapper extends ConfigurableMapper implements Initia
         addClassMap(mapperFactory);
     }
 
-    protected void addClassMap(MapperFactory mapperFactory) {
-        //todo: вынести в компоненты
-    }
+    /**
+     * child can add custom mappers here
+     * @param mapperFactory
+     */
+    protected void addClassMap(MapperFactory mapperFactory) {}
 
-    protected void extendEnumMapping(EnumedDictionary aEnitity, EnumedDictionaryDto aDto, MapperFacade aMapperFacade) {
-    }
+    /**
+     * child can add custom enum mapping logic here, this method will be called for any enum convertion
+     * @param aEnitity
+     * @param aDto
+     * @param aMapperFacade
+     */
+    protected void extendEnumMapping(EnumedDictionary aEnitity, EnumedDictionaryDto aDto, MapperFacade aMapperFacade) {}
 
     private class DtoClassMapBuilder<A, B> extends ClassMapBuilder<A, B> {
 

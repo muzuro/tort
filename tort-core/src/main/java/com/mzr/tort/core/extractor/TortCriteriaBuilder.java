@@ -27,6 +27,7 @@ import com.mzr.tort.core.dto.IdentifiedDto;
 import com.mzr.tort.core.dto.utils.DtoUtils;
 import com.mzr.tort.core.dto.utils.Prop;
 import com.mzr.tort.core.dto.utils.TypeUtils;
+import com.mzr.tort.core.mapper.TortConfigurableMapper;
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +45,7 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
     private Root<E> root;
     private CriteriaQuery<E> criteriaQuery;
     private List<Predicate> predicates = new ArrayList<>();
+    private TortConfigurableMapper configurableMapper;
 
     TortCriteriaBuilder(Class<E> aEntityClass, Class<D> aDtoClass, EntityManager entityManager) {
         rootEntity = aEntityClass;
@@ -58,6 +60,11 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
         PropertyMeta rootPropertyCriteria = new PropertyMeta(root, "", rootEntity);
         criterias.put("", rootPropertyCriteria);
         addJoins(dtoClass, rootEntity, rootPropertyCriteria);
+        return this;
+    }
+
+    public TortCriteriaBuilder<E, D> mapper(TortConfigurableMapper tortConfigurableMapper) {
+        configurableMapper = tortConfigurableMapper;
         return this;
     }
 
@@ -248,6 +255,16 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
         query.setFirstResult(aStartFrom);
         query.setMaxResults(aCount);
         return query.getResultList();
+    }
+
+    public List<D> listDto() {
+        List<E> result = list();
+        return configurableMapper.mapAsList(result, dtoClass);
+    }
+
+    public List<D> listDto(int aStartFrom, int aCount) {
+        List<E> result = list(aStartFrom, aCount);
+        return configurableMapper.mapAsList(result, dtoClass);
     }
 
     public E unique() {

@@ -4,7 +4,7 @@ import com.mzr.tort.core.dao.SimpleDao;
 import com.mzr.tort.core.dao.SimpleDaoImpl;
 import com.mzr.tort.core.extractor.DtoExtractor;
 import com.mzr.tort.core.extractor.DtoExtractorImpl;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import com.mzr.tort.core.mapper.TortConfigurableMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,13 +12,18 @@ import org.springframework.context.annotation.Configuration;
 public class TortConfiguration {
 
     @Bean
-    public SimpleDao getSimpleDao() {
+    public SimpleDao simpleDao() {
         return new SimpleDaoImpl();
     }
 
     @Bean
-    public DtoExtractor getDtoExtractor() {
+    public DtoExtractor dtoExtractor() {
         return new DtoExtractorImpl();
     }
+
+    @Bean
+    public TortConfigurableMapper tortConfigurableMapper() {
+        return new TortConfigurableMapper();
+    };
 
 }

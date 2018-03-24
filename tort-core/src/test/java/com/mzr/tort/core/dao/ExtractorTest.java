@@ -126,4 +126,27 @@ public class ExtractorTest {
         });
     }
 
+    @Test
+    public void testPageWithMapping() throws Exception {
+        Consumer<String> creator = (n) -> {
+            University kgtu = new University();
+            kgtu.setName(n);
+            entityManager.persist(kgtu);
+        };
+
+        transactionHelperBean.doInTransaction(() -> {
+            IntStream.range(0, 99).forEach((i)->creator.accept(String.format("%02d", i)));
+        });
+
+        transactionHelperBean.doInTransaction(()-> {
+            Set<String> possible = new HashSet<>();
+            IntStream.range(20, 30).forEach((i) -> possible.add(String.valueOf(i)));
+            List<UniversityDto> universities = dtoExtractor.extract(UniversityDto.class, University.class)
+                    .order("name", TortCriteriaBuilder.OrderType.ASC)
+                    .listDto(20, 10);
+            Assert.assertEquals(10, universities.size());
+            Assert.assertTrue(universities.stream().allMatch((u) -> possible.contains(u.getName())));
+        });
+    }
+
 }

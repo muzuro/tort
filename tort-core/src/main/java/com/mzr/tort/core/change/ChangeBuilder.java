@@ -1,22 +1,5 @@
 package com.mzr.tort.core.change;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.Sets;
-import com.mzr.tort.core.Identified;
-import com.mzr.tort.core.change.model.Change;
-import com.mzr.tort.core.domain.DateHelper;
-import com.mzr.tort.core.dto.utils.DtoUtils;
-import com.mzr.tort.core.dto.utils.Prop;
-import com.mzr.tort.core.dto.utils.TypeUtils;
-import com.mzr.tort.core.extractor.TortConfigurableMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.i18n.LocaleContextHolder;
-import com.mzr.tort.core.change.model.ObjectChange;
-import com.mzr.tort.core.change.model.ValueChange;
-import com.mzr.tort.core.domain.EnumedDictionary;
-import com.mzr.tort.core.dto.EnumedDictionaryDto;
-
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -28,6 +11,23 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+
+import com.google.common.base.Joiner;
+import com.google.common.collect.Sets;
+import com.mzr.tort.core.Identified;
+import com.mzr.tort.core.change.model.Change;
+import com.mzr.tort.core.change.model.ObjectChange;
+import com.mzr.tort.core.change.model.ValueChange;
+import com.mzr.tort.core.domain.DateHelper;
+import com.mzr.tort.core.domain.EnumedDictionary;
+import com.mzr.tort.core.dto.EnumedDictionaryDto;
+import com.mzr.tort.core.dto.utils.DtoUtils;
+import com.mzr.tort.core.dto.utils.Prop;
+import com.mzr.tort.core.dto.utils.TypeUtils;
+import com.mzr.tort.core.mapper.TortConfigurableMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.i18n.LocaleContextHolder;
 
 public class ChangeBuilder {
     
