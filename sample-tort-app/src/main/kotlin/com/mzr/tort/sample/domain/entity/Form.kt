@@ -14,5 +14,5 @@ class Form : LongIdEntity() {
     var university: University? = null
 
     @get:OneToMany(fetch = FetchType.LAZY, mappedBy = "form", cascade = [CascadeType.ALL])
-    var students: Set<Student> = HashSet()
+    var students: MutableSet<Student> = HashSet()
 }

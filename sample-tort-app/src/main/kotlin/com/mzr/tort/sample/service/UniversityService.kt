@@ -12,14 +12,9 @@ class UniversityService {
     @Autowired
     lateinit var dtoExtractor: DtoExtractor;
 
-    fun fetch(): List<UniversityDto> {
-        val list = dtoExtractor.extract(UniversityDto::class.java, University::class.java)
-                .list();
-        return list.map {
-            val d = UniversityDto()
-            d.name = it.name
-            d
-        }.toList()
+    fun fetch(from: Int, count: Int): List<UniversityDto> {
+        return dtoExtractor.extract(UniversityDto::class.java, University::class.java)
+           .listDto(from, count);
     }
 
 }

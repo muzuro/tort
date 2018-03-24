@@ -6,8 +6,6 @@ class StudentDto : FinishableLongIdDto {
 
     var name: String? = null
 
-    var form: FormDto? = null
-
     var version: Long? = null
 
     constructor() {

@@ -9,7 +9,5 @@ class FormDto : LongIdEntity() {
 
     var name: String? = null
 
-    var university: UniversityDto? = null
-
-    var students: Set<Student> = HashSet()
+    var students: Set<StudentDto> = HashSet()
 }

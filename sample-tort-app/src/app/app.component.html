@@ -1,0 +1,27 @@
+<!--The content below is only a placeholder and can be replaced.-->
+<div style="text-align:center">
+  <h1>
+    Welcome to {{ title }}. It is sample for pagination and mapping demo.
+  </h1>
+  <table>
+    <tr *ngFor="let univesity of universities">
+      <td>{{univesity.name}}</td>
+      <td>
+        <div *ngFor="let form of univesity.forms">
+          <span>{{form.name}}</span>:
+          <span *ngFor="let student of form.students;">
+            {{student.name}},
+          </span>
+        </div>
+      </td>
+    </tr>
+  </table>
+  <span>From {{from}}, count: </span>
+  <input [(ngModel)]="count" type="number" min="5" max="30" (change)="getUniversities()"/>
+  <button (click)="prev()">
+    Prev
+  </button>
+  <button (click)="next()">
+    Next
+  </button>
+</div>
