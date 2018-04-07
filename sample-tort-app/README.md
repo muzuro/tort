@@ -1,6 +1,6 @@
 # Sample tort app
 
-Demonstrate features of tort with angular frontend.
+Demonstrate features of tort with angular frontend and kotlin backend.
 
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 1.7.3.
 
