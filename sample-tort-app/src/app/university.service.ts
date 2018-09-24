@@ -19,7 +19,7 @@ export class UniversityService {
   constructor(
     private http: HttpClient) { }
 
-  /** GET heroes from the server */
+  /** GET universities from the server */
   getUniversities(from: number, count: number): Observable<University[]> {
     let params = new HttpParams()
       .set("from", from.toString())
