@@ -22,6 +22,7 @@ import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Iterables;
 import com.mzr.tort.core.domain.IdentifiedEntity;
 import com.mzr.tort.core.dto.IdentifiedDto;
 import com.mzr.tort.core.dto.utils.DtoUtils;
@@ -270,6 +271,14 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
     public E unique() {
         TypedQuery<E> query = prepareQuery();
         return query.getSingleResult();
+    }
+
+    public E single() {
+        List<E> list = list();
+        if (list.size() > 1) {
+            throw new IllegalStateException("Not single result");
+        }
+        return Iterables.getFirst(list, null);
     }
 
     private TypedQuery<E> prepareQuery() {
