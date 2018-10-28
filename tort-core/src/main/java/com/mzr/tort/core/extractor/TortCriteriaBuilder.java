@@ -273,12 +273,21 @@ public class TortCriteriaBuilder<E extends IdentifiedEntity, D extends Identifie
         return query.getSingleResult();
     }
 
+    public D uniqueDto() {
+        return configurableMapper.map(unique(), dtoClass);
+    }
+
     public E single() {
         List<E> list = list();
         if (list.size() > 1) {
             throw new IllegalStateException("Not single result");
         }
         return Iterables.getFirst(list, null);
+    }
+
+    public D singleDto() {
+        E single = single();
+        return single != null ? configurableMapper.map(single(), dtoClass) : null;
     }
 
     private TypedQuery<E> prepareQuery() {
